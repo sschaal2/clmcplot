@@ -11,7 +11,7 @@ switch task,
   
 case 'init',
 	init_clmcplot;
- case 'open',
+case 'open',
 	clmcplot_open(0);
 case 'fast_open',
 	clmcplot_open(1);
@@ -25,6 +25,8 @@ case 'key_press',
 	key_press;
 case 'varlist',
 	clmcplot_varlist;
+case 'filterlist',
+	clmcplot_filter_list;
 case 'add_subplot',
 	add_subplot(1);
 case 'delete_subplot',
@@ -101,7 +103,7 @@ return;
 function clmcplot_command()
 
 global MRDS;
-bw  = 72; % button width
+bw  = 89; % button width
 bh  = 23; % button height
 bs  = 6;  % button horizontal spacing
 bb  = 11; % button begin
@@ -112,9 +114,9 @@ if (size(MRDS.screensize,1) > 1)
   fig_size = MRDS.screensize(2,:);
 else
   s = MRDS.screensize;
-  fig_size(1) = s(1)+s(3)-260-scrollbar_width+1;
+  fig_size(1) = s(1)+s(3)-310-scrollbar_width+1;
   fig_size(2) = s(2)+50;
-  fig_size(3) = 250;
+  fig_size(3) = 300;
   fig_size(4) = s(4)-50-(fig_size(2)-s(2));
 end
 
@@ -142,7 +144,7 @@ lptr = uicontrol('Parent',ptr, ...
 'Units','pixels', ...
 'Callback','clmcplot_functions(''varlist'');',...
 'BackgroundColor',[1 1 1], ...
-'Position',[10 395 fig_size(3)-20 floor(fig_size(4))-20-195-200], ...
+'Position',[10 395 fig_size(3)-20 floor(fig_size(4))-20-195-225], ...
 'Style','listbox', ...
 'Tag','List of Variables', ...
 'FontSize',9,...
@@ -153,7 +155,6 @@ lptr = uicontrol('Parent',ptr, ...
 % the list pointer is also kept in the global structure a header for the list of
 % variables
 MRDS.lptr = lptr;  
-
 
 b = uicontrol('Parent',ptr, ...
 'Units','pixels', ...
@@ -166,6 +167,18 @@ b = uicontrol('Parent',ptr, ...
 
 MRDS.nptr=b;
 
+b = uicontrol('Parent',ptr, ...
+'Units','pixels', ...
+'Callback','clmcplot_functions(''filterlist'');',...
+'BackgroundColor',[1 1 1], ...
+'Position',[10 fig_size(4)-44 fig_size(3)-20 24], ...
+'String','', ...
+'Style','edit', ...
+'FontSize',9, ...
+'FontName','Monaco',...
+'Tag','Variable Filter');
+
+MRDS.fptr=b;
 
 % create the list for the views
 vptr = uicontrol('Parent',ptr, ...
@@ -442,21 +455,9 @@ fclose(fid);
 MRDS.t     = (1:MRDS.rows)'/MRDS.freq;  % the time column
 MRDS.fname = fname;
 
-% build the string for showing the variable names
-
-temp = sprintf('%s [%s]',MRDS.vars(1).name,MRDS.vars(1).unit);
-string=sprintf('%25s= %% .4g',temp);
-MRDS.varnames{1}=MRDS.vars(1).name;
-for i=2:MRDS.cols,
-	temp = sprintf('%s [%s]',MRDS.vars(i).name,MRDS.vars(i).unit);
-	string=[string,'|',sprintf('%25s= %% .4g',temp)];
-  MRDS.varnames{i}=MRDS.vars(i).name;
-end;
-
-MRDS.string=string;
-set(MRDS.lptr,'Value',1,'String',sprintf(MRDS.string,MRDS.data(1,:)));
+% update the list
 MRDS.cursor = 1;
-set(MRDS.tptr,'String',sprintf('time=%8.4f  tick=%5d',MRDS.t(MRDS.cursor),MRDS.cursor));
+clmcplot_filter_list;
 
 % fix all plots
 
@@ -480,7 +481,7 @@ else
   s = MRDS.screensize;
   fig_size(1) = s(1)+1;
   fig_size(2) = s(2)+150;
-  fig_size(3) = s(3)-260-(fig_size(1)-s(1))-scrollbar_width;
+  fig_size(3) = s(3)-315-(fig_size(1)-s(1))-scrollbar_width;
   fig_size(4) = s(4)-50-(fig_size(2)-s(2));
 end
 
@@ -612,14 +613,14 @@ global MRDS;
 
 if (MRDS.flag == 7), %---add/sub 1--
 	if (toc - MRDS.time <= 6),
-		MRDS.var1 = get(MRDS.lptr, 'value');
+		MRDS.var1 = MRDS.fmap(get(MRDS.lptr, 'value'));
 		MRDS.flag = 8;
   else
 		MRDS.time = toc;
 		MRDS.flag = 1;
 	end;
 elseif (MRDS.flag == 8), %---add/sub 2---
-	MRDS.var2 = get(MRDS.lptr, 'value');
+	MRDS.var2 = MRDS.fmap(get(MRDS.lptr, 'value'));
 	MRDS.flag = 0;
 	MRDS.time = toc;
 	answer=questdlg('Add or Subtract?','Input','+','-','-');
@@ -635,21 +636,19 @@ elseif (MRDS.flag == 8), %---add/sub 2---
 	dvar.name = dname;
 	dvar.unit = dunit;
 	MRDS.vars = [MRDS.vars, dvar];
-	temp = sprintf('%s [%s]', dname, dunit);
-	MRDS.string = [MRDS.string,'|',sprintf('%20s= %% .4g',temp)];
-	set(MRDS.lptr,'String',sprintf(MRDS.string,MRDS.data(1,:)));
+  clmcplot_filter_list;
 	MRDS.flag = 0;
 	MRDS.time = toc;
 elseif (MRDS.flag == 4), %---Phase Plot 1---
 	if (toc - MRDS.time <= 6),
-		MRDS.var1 = get(MRDS.lptr, 'value');
+		MRDS.var1 = MRDS.fmap(get(MRDS.lptr, 'value'));
 		MRDS.flag = 5;
   else
 		MRDS.time = toc;
 		MRDS.flag = 1;
 	end;
 elseif (MRDS.flag == 5), %---Phase Plot 2---
-	MRDS.var2 = get(MRDS.lptr, 'value');
+	MRDS.var2 = MRDS.fmap(get(MRDS.lptr, 'value'));
 	MRDS.flag = 0;
 	MRDS.time = toc;
 	figure;
@@ -670,7 +669,7 @@ elseif (MRDS.flag == 6), %---Differentiation---
 		order = sscanf(char(reply(1)),'%f');
 		cutoff = sscanf(char(reply(2)), '%f');
 		[b,a] = butter(order, cutoff);
-		dvar = get(MRDS.lptr, 'value');
+		dvar = MRDS.fmap(get(MRDS.lptr, 'value'));
 		x = diff(MRDS.data(:,dvar));
 		x = [x(1); x];
 		x = x * MRDS.freq;
@@ -688,9 +687,7 @@ elseif (MRDS.flag == 6), %---Differentiation---
 		dvar.unit = dunit;
 		MRDS.vars = [MRDS.vars, dvar];
 		MRDS.varnames{end+1} = dname;
-		temp = sprintf('%s [%s]', dname, dunit);
-		MRDS.string = [MRDS.string,'|',sprintf('%20s= %% .4g',temp)];
-		set(MRDS.lptr,'String',sprintf(MRDS.string,MRDS.data(1,:)));
+    clmcplot_filter_list;
 		MRDS.flag = 0;
 		MRDS.time = toc;
   else
@@ -728,7 +725,7 @@ if ~isempty(a) && toc-MRDS.time < 5,  % if yes and only 5 secs ago the user clic
 	elseif MRDS.flag==1 || MRDS.flag==3,  % add or delete variable
 		if MRDS.flag == 1,
 			% which variable is highlighted?
-			v=get(MRDS.lptr,'Value');
+			v=MRDS.fmap(get(MRDS.lptr,'Value'));
 			% add variable to the plot data
 			ind=[];
 			if ~isempty(MRDS.axes_data(i).values),
@@ -1070,4 +1067,32 @@ for i=1:MRDS.n_subplots,
   redraw_subplot(i);
 end
 
-  
+%------------------------------------------------------------------------------------------
+function clmcplot_filter_list
+global MRDS;
+
+% get the current filter for the variable list
+vfilter = get(MRDS.fptr,'String');
+
+% re-build the string for showing the variable names
+count = 0;
+MRDS.varnames={};
+MRDS.fmap=[];
+string='';
+for i=1:MRDS.cols,
+	temp = sprintf('%s [%s]',MRDS.vars(i).name,MRDS.vars(i).unit);
+  if (isempty(vfilter) || ~isempty(strfind(temp,vfilter)))
+    count = count+1;
+    MRDS.fmap(count)=i;
+    if (count == 1)
+      string=sprintf('%25s= %% .4g',temp);
+    else
+      string=[string,'|',sprintf('%25s= %% .4g',temp)];
+    end
+  end
+  MRDS.varnames{i}=MRDS.vars(i).name;
+end;
+
+MRDS.string=string;
+set(MRDS.lptr,'Value',1,'String',sprintf(MRDS.string,MRDS.data(MRDS.cursor,MRDS.fmap)));
+set(MRDS.tptr,'String',sprintf('time=%8.4f  tick=%5d',MRDS.t(MRDS.cursor),MRDS.cursor));
