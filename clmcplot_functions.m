@@ -636,7 +636,7 @@ elseif (MRDS.flag == 8), %---add/sub 2---
 	dvar.name = dname;
 	dvar.unit = dunit;
 	MRDS.vars = [MRDS.vars, dvar];
-  clmcplot_filter_list;
+	clmcplot_filter_list;
 	MRDS.flag = 0;
 	MRDS.time = toc;
 elseif (MRDS.flag == 4), %---Phase Plot 1---
@@ -668,12 +668,14 @@ elseif (MRDS.flag == 6), %---Differentiation---
 		reply = inputdlg(prompt, 'Differentiation Filter Options', 1, def);
 		order = sscanf(char(reply(1)),'%f');
 		cutoff = sscanf(char(reply(2)), '%f');
-		[b,a] = butter(order, cutoff);
+		if (cutoff > 0 && cutoff < 1 && order > 0 ),
+		   [b,a] = butter(order, cutoff);
+		end
 		dvar = MRDS.fmap(get(MRDS.lptr, 'value'));
 		x = diff(MRDS.data(:,dvar));
 		x = [x(1); x];
 		x = x * MRDS.freq;
-		if order ~= 0 && cutoff ~= 1,
+		if (cutoff > 0 && cutoff < 1 && order > 0 ),
 			filt_x = filtfilt(b, a, x);
 		else 
 			filt_x = x;
@@ -687,7 +689,7 @@ elseif (MRDS.flag == 6), %---Differentiation---
 		dvar.unit = dunit;
 		MRDS.vars = [MRDS.vars, dvar];
 		MRDS.varnames{end+1} = dname;
-    clmcplot_filter_list;
+ 		clmcplot_filter_list;
 		MRDS.flag = 0;
 		MRDS.time = toc;
   else
@@ -750,6 +752,7 @@ elseif ~isempty(a),
 	MRDS.flag = 0;
 	do_cursor;
 end;
+
 
 %------------------------------------------------------------------------------------------
 function clear_subplot(i)
@@ -898,6 +901,9 @@ end;
 if ~isempty(MRDS.string),
 	set(MRDS.lptr,'String',sprintf(MRDS.string,MRDS.data(MRDS.cursor,:)));
 end;
+
+% need to update the filtered list
+clmcplot_filter_list;
 
 
 %------------------------------------------------------------------------------------------
