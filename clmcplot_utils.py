@@ -115,7 +115,13 @@ def read_from_clmcplot_format(
     # The first line contains number of values, number of columns,
     # number of rows, and sampling frequency.
     line = f.readline().strip()
-    values = [float(i) for i in line.split(' ')]
+    line_split = line.split(' ')
+    for l in line_split:
+        if l == '':
+            line_split.remove(l)
+
+    values = [float(i) for i in line_split]
+      
     desc = {
         'n_cols': int(values[1]),
         'n_rows': int(values[2]),
